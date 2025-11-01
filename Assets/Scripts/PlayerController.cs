@@ -8,14 +8,22 @@ public class PlayerController : MonoBehaviour
     public TMP_Text countText;
     public TMP_Text winText;
     public TMP_Text loseText;
-
+    public AudioClip pickupSound;
+    public AudioClip endGameSound;
+    public bool isGrounded;
+    public bool starGame = false;
     public float speed = 10.0f;
     public float jumpForce = 6;
+    public GameObject enemy;
     private Rigidbody rb;
     private int count;
     private float movementX;
     private float movementY;
-    public bool isGrounded;
+
+    private bool isWinning = false;
+
+    private bool isResetting = false;
+    
 
 
     //Start
@@ -40,7 +48,7 @@ public class PlayerController : MonoBehaviour
 
     void OnJump(InputValue jumpValue)
     {
-        if (isGrounded)
+        if (isGrounded && starGame)
         {
             rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
             isGrounded = false;
@@ -49,16 +57,17 @@ public class PlayerController : MonoBehaviour
 
     void FixedUpdate()
     {
-        Vector3 movement = new Vector3(movementX, 0.0f, movementY);
-        rb.AddForce(movement * speed);
+        if (starGame){
+            Vector3 movement = new Vector3(movementX, 0.0f, movementY);
+            rb.AddForce(movement * speed);
 
-        if (transform.position.y < -10)
-        {
-            StartCoroutine(ResetGame());
+            if (transform.position.y < -10 && !isResetting)
+            {
+                isResetting = true;
+                StartCoroutine(ResetGame());
+            }
         }
     }
-
-    
 
     private void OnCollisionEnter(Collision collision)
     {
@@ -66,12 +75,19 @@ public class PlayerController : MonoBehaviour
         {
             isGrounded = true;
         }
+
+        if (collision.gameObject.CompareTag("Enemy"))
+        {
+            Destroy(collision.gameObject);
+            StartCoroutine(ResetGame());
+        }
     }
 
     private void OnTriggerEnter(Collider other)
     {
         if (other.gameObject.CompareTag("PickUp"))
         {
+            AudioSource.PlayClipAtPoint(pickupSound, transform.position);
             other.gameObject.SetActive(false);
 
             count++;
@@ -92,6 +108,7 @@ public class PlayerController : MonoBehaviour
 
     private IEnumerator NextStage()
     {
+        isWinning = true;
         yield return new WaitForSeconds(2);
         int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
         int nextSceneIndex = currentSceneIndex + 1;
@@ -103,9 +120,15 @@ public class PlayerController : MonoBehaviour
     }
     
     private IEnumerator ResetGame()
-    {   
-            loseText.gameObject.SetActive(true);
+    {
+        if (!isWinning){
+        loseText.gameObject.SetActive(true);
+        rb.linearVelocity = Vector3.zero;     
+        rb.angularVelocity = Vector3.zero;
+        rb.constraints = RigidbodyConstraints.FreezeAll;
+        AudioSource.PlayClipAtPoint(endGameSound, transform.position);
         yield return new WaitForSeconds(2);
+         rb.constraints = RigidbodyConstraints.None;
          int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
     int nextSceneIndex = currentSceneIndex;
 
@@ -113,5 +136,5 @@ public class PlayerController : MonoBehaviour
         nextSceneIndex = 0;
     SceneManager.LoadScene(nextSceneIndex);
     }
-
+}
 }
